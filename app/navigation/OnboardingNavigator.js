@@ -1,0 +1,35 @@
+import { createStackNavigator } from '@react-navigation/stack';
+import LoginScreen from '../screens/auth/LoginScreen';
+import SignupScreen from '../screens/auth/SignupScreen';
+import NameScreen from '../screens/onboarding/NameScreen';
+import HeightScreen from '../screens/onboarding/HeightScreen';
+import WeightScreen from '../screens/onboarding/WeightScreen';
+import SexScreen from '../screens/onboarding/SexScreen';
+import ActivityScreen from '../screens/onboarding/ActivityScreen';
+import GoalsScreen from '../screens/onboarding/GoalsScreen';
+import ChatScreen from '../screens/chat/ChatScreen';
+import TabNavigator from './TabNavigator';
+import OrderFormScreen from '../screens/store/OrderFormScreen';
+
+const Stack = createStackNavigator();
+
+export default function OnboardingNavigator() {
+  return (
+    <Stack.Navigator
+      initialRouteName="Login"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+      <Stack.Screen name="Name" component={NameScreen} />
+      <Stack.Screen name="Height" component={HeightScreen} />
+      <Stack.Screen name="Weight" component={WeightScreen} />
+      <Stack.Screen name="Sex" component={SexScreen} />
+      <Stack.Screen name="Activity" component={ActivityScreen} />
+      <Stack.Screen name="Goals" component={GoalsScreen} />
+      <Stack.Screen name="MainApp" component={TabNavigator} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="OrderForm" component={OrderFormScreen} />
+    </Stack.Navigator>
+  );
+}
