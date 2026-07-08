@@ -6,7 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+
 
 export default function MealScreen() {
   const [image, setImage] = useState(null);
@@ -45,72 +45,114 @@ export default function MealScreen() {
 
   const analyzeMeal = async (imageAsset) => {
     setLoading(true);
-
+  
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const base64 = imageAsset.base64;
+      const mimeType = 'image/jpeg';
+  
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_OPENAI_KEY}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'gpt-4o',
           max_tokens: 800,
           messages: [
             {
               role: 'user',
-              content: `Analyze this meal and provide a detailed nutrition breakdown. 
-              Respond ONLY in this exact JSON format with no extra text:
-              {
-                "meal_name": "Name of the meal",
-                "calories": 450,
-                "protein": 25,
-                "carbs": 45,
-                "fat": 15,
-                "fiber": 8,
-                "ingredients": ["ingredient 1", "ingredient 2", "ingredient 3"],
-                "health_score": 7,
-                "health_note": "Brief health assessment",
-                "recommendation": "Personalized tip"
-              }
-              
-              Since you cannot see images, estimate based on a typical balanced meal. 
-              Make realistic estimates.`
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${mimeType};base64,${base64}`,
+                  },
+                },
+                {
+                  type: 'text',
+                  text: `Analyze this image. If it is food or a meal, provide a nutrition breakdown in this exact JSON format with no extra text:
+  {
+    "is_food": true,
+    "meal_name": "Name of the meal",
+    "calories": 450,
+    "protein": 25,
+    "carbs": 45,
+    "fat": 15,
+    "fiber": 8,
+    "ingredients": ["ingredient 1", "ingredient 2"],
+    "health_score": 7,
+    "health_note": "Brief health assessment",
+    "recommendation": "Personalized tip"
+  }
+  
+  If it is NOT food (like a car, person, object etc.), return:
+  {
+    "is_food": false,
+    "meal_name": "Not a meal",
+    "calories": 0,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 0,
+    "fiber": 0,
+    "ingredients": [],
+    "health_score": 0,
+    "health_note": "This does not appear to be food",
+    "recommendation": "Please take a photo of your meal"
+  }`
+                }
+              ],
             }
           ],
         }),
       });
-
+  
       const data = await response.json();
       const text = data.choices?.[0]?.message?.content || '{}';
-
+  
       let result;
       try {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         result = JSON.parse(jsonMatch ? jsonMatch[0] : text);
       } catch {
         result = {
-          meal_name: 'Analyzed Meal',
-          calories: 450,
-          protein: 20,
-          carbs: 50,
-          fat: 15,
-          fiber: 6,
-          ingredients: ['Various ingredients detected'],
-          health_score: 7,
-          health_note: 'Balanced meal with good nutrients',
-          recommendation: 'Great choice! Keep maintaining a balanced diet.',
+          is_food: false,
+          meal_name: 'Could not analyze',
+          calories: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          fiber: 0,
+          ingredients: [],
+          health_score: 0,
+          health_note: 'Could not analyze this image',
+          recommendation: 'Please try again with a clearer photo of food',
         };
       }
-
+  
+      if (!result.is_food) {
+        Alert.alert(
+          '🚫 Not a meal',
+          'This does not look like food. Please take a photo of your meal!',
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        setImage(null);
+        return;
+      }
+  
       setAnalysis(result);
-      setHistory(prev => [{ ...result, image: imageAsset.uri, time: new Date() }, ...prev.slice(0, 4)]);
+      setHistory(prev => [
+        { ...result, image: imageAsset.uri, time: new Date() },
+        ...prev.slice(0, 4)
+      ]);
       await addPoints();
-
+  
     } catch (error) {
+      console.log('Meal analysis error:', error);
       Alert.alert('Error', 'Could not analyze meal. Please try again.');
     }
-
+  
     setLoading(false);
   };
 

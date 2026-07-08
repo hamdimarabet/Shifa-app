@@ -60,7 +60,8 @@ export default function JournalScreen() {
   const saveEntry = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     const today = new Date().toISOString().split('T')[0];
-
+  
+    // Save to our health_journal table
     const entryData = {
       user_id: user.id,
       date: today,
@@ -70,32 +71,71 @@ export default function JournalScreen() {
       mood: form.mood || null,
       notes: form.notes || null,
     };
-
+  
     if (todayEntry) {
-      await supabase
-        .from('health_journal')
-        .update(entryData)
-        .eq('id', todayEntry.id);
+      await supabase.from('health_journal').update(entryData).eq('id', todayEntry.id);
     } else {
-      await supabase
-        .from('health_journal')
-        .insert(entryData);
-
+      await supabase.from('health_journal').insert(entryData);
+    }
+  
+    // Also call his checkin API for AI analysis
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+  
+      const checkinResponse = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/checkin`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            meals_today: form.notes || 'Not specified',
+            activity_today: 'Not specified',
+            mood: form.mood || '',
+            weight: parseFloat(form.weight) || profile?.weight,
+            height: profile?.height,
+            goals: profile?.goals || [],
+            language: 'ar',
+          }),
+        }
+      );
+  
+      const checkinData = await checkinResponse.json();
+  
+      if (checkinData.product_hint) {
+        Alert.alert(
+          '💊 Shifa recommends',
+          `Based on your check-in: ${checkinData.product_hint}`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.log('Checkin API error:', error);
+    }
+  
+    // Add loyalty points
+    if (!todayEntry) {
       const { data: loyalty } = await supabase
         .from('loyalty')
         .select('points')
         .eq('id', user.id)
         .single();
-
       await supabase
         .from('loyalty')
         .update({ points: (loyalty?.points || 0) + 10 })
         .eq('id', user.id);
     }
-
+  
     setModalVisible(false);
     fetchEntries();
-    Alert.alert('✅ Saved!', todayEntry ? 'Journal updated!' : 'Journal saved! +10 points earned!');
+    Alert.alert(
+      '✅ Saved!',
+      todayEntry ? 'Journal updated!' : 'Journal saved! +10 points earned!'
+    );
   };
 
   const update = (key, val) => setForm(p => ({ ...p, [key]: val }));

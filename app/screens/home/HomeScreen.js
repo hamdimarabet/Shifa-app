@@ -5,26 +5,27 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-const MEAL_SUGGESTIONS = [
-  { emoji: '🥗', name: 'Grilled Chicken Salad', cal: 320, tag: 'High Protein' },
-  { emoji: '🍳', name: 'Egg White Omelette', cal: 180, tag: 'Low Carb' },
-  { emoji: '🥣', name: 'Oats with Berries', cal: 280, tag: 'Energy Boost' },
-  { emoji: '🐟', name: 'Grilled Salmon', cal: 350, tag: 'Omega-3' },
-  { emoji: '🥙', name: 'Veggie Wrap', cal: 260, tag: 'Balanced' },
-  { emoji: '🍲', name: 'Lentil Soup', cal: 220, tag: 'Fiber Rich' },
+const FALLBACK_MEALS = [
+  { title: 'Grilled Chicken Salad', recommendation: 'High-protein meal idea.', reason: 'Good for balanced nutrition.' },
+  { title: 'Oats with Berries', recommendation: 'Energy-boosting breakfast.', reason: 'Good source of carbs and fiber.' },
+  { title: 'Lentil Soup', recommendation: 'Fiber-rich meal.', reason: 'Supports digestion.' },
 ];
 
 export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [loyalty, setLoyalty] = useState(null);
   const [products, setProducts] = useState([]);
+  const [meals, setMeals] = useState([]);
+  const [exercises, setExercises] = useState([]);
+  const [dailyActions, setDailyActions] = useState([]);
+  const [priorityFocus, setPriorityFocus] = useState('');
+  const [checkinResult, setCheckinResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checkInVisible, setCheckInVisible] = useState(false);
-  const [checkIn, setCheckIn] = useState({ ate: '', feeling: '', water: '', exercise: '' });
+  const [checkIn, setCheckIn] = useState({ ate: '', feeling: '', exercise: '' });
   const [aiTip, setAiTip] = useState('');
-  const [tipLoading, setTipLoading] = useState(false);
   const [greeting, setGreeting] = useState('');
 
   useEffect(() => {
@@ -39,70 +40,135 @@ export default function HomeScreen({ navigation }) {
     else setGreeting('Good evening');
   };
 
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const [{ data: profileData }, { data: loyaltyData }, { data: productsData }] =
-      await Promise.all([
-        supabase.from('user_profiles').select('*').eq('id', user.id).single(),
-        supabase.from('loyalty').select('*').eq('id', user.id).single(),
-        supabase.from('products').select('*').limit(4),
-      ]);
-
-    setProfile(profileData);
-    setLoyalty(loyaltyData);
-    setProducts(productsData || []);
-    setLoading(false);
-
-    fetchAiTip(profileData);
+  const normalizeGoals = (goals) => {
+    if (Array.isArray(goals)) return goals;
+    if (goals) return [goals];
+    return [];
   };
 
-  const fetchAiTip = async (profileData) => {
-    if (!profileData) return;
-    setTipLoading(true);
+  const fetchData = async () => {
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          max_tokens: 100,
-          messages: [{
-            role: 'user',
-            content: `Give a single short wellness tip (max 2 sentences) for someone who wants to ${(profileData?.goals || []).join(', ')}. Be specific and motivating. No introduction, just the tip.`
-          }],
-        }),
-      });
-      const data = await response.json();
-      setAiTip(data.choices?.[0]?.message?.content || '');
-    } catch {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+  
+      const [{ data: profileData }, { data: loyaltyData }] = await Promise.all([
+        supabase.from('user_profiles').select('*').eq('id', user.id).single(),
+        supabase.from('loyalty').select('*').eq('id', user.id).single(),
+      ]);
+  
+      setProfile(profileData);
+      setLoyalty(loyaltyData);
+  
+      // Try recommend API — fail silently if not available
+      try {
+        const safeGoals = normalizeGoals(profileData?.goals);
+        const recommendRes = await fetch(`${API_URL}/recommend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            age: Number(profileData?.age) || 0,
+            weight: Number(profileData?.weight) || 0,
+            height: Number(profileData?.height) || 0,
+            sex: profileData?.sex || '',
+            goals: safeGoals,
+            medical_conditions: profileData?.medical_conditions || [],
+            language: 'ar',
+            activity_info: profileData?.activity_level || '',
+          }),
+        });
+  
+        if (recommendRes.ok) {
+          const recommendData = await recommendRes.json();
+          const aiProducts = (recommendData.recommended_products || []).map((p, index) => ({
+            id: index,
+            name: p.product || p.name || 'Recommended product',
+            image_emoji: p.image_emoji || '🌿',
+            price: p.offer?.new_price || p.price || '',
+            category: p.reason || p.category || 'Recommended',
+          }));
+          setProducts(aiProducts);
+          setMeals(recommendData.meal_recommendations || FALLBACK_MEALS);
+          setExercises(recommendData.exercise_recommendations || []);
+          setDailyActions(recommendData.daily_actions || []);
+          setPriorityFocus(recommendData.priority_focus || '');
+          setAiTip(
+            recommendData.motivation_message ||
+            recommendData.behavioral_insight ||
+            'Stay consistent with your wellness goals today!'
+          );
+        } else {
+          setMeals(FALLBACK_MEALS);
+          setAiTip('Stay consistent with your wellness goals today!');
+        }
+      } catch (recommendError) {
+        console.log('Recommend API not available:', recommendError);
+        setMeals(FALLBACK_MEALS);
+        setAiTip('Stay consistent with your wellness goals today!');
+      }
+  
+    } catch (error) {
+      console.log('Home fetchData error:', error);
+      setMeals(FALLBACK_MEALS);
       setAiTip('Stay consistent with your wellness goals today!');
+    } finally {
+      setLoading(false);
     }
-    setTipLoading(false);
   };
 
   const submitCheckIn = async () => {
-    if (!checkIn.ate && !checkIn.feeling && !checkIn.water && !checkIn.exercise) return;
+    if (!checkIn.ate && !checkIn.feeling && !checkIn.exercise) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: loy } = await supabase
-      .from('loyalty')
-      .select('points')
-      .eq('id', user.id)
-      .single();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    await supabase
-      .from('loyalty')
-      .update({ points: (loy?.points || 0) + 10 })
-      .eq('id', user.id);
+      const safeGoals = normalizeGoals(profile?.goals);
 
-    setCheckInVisible(false);
-    setCheckIn({ ate: '', feeling: '', water: '', exercise: '' });
-    Alert.alert('✅ Check-in saved!', 'You earned +10 points for your daily check-in!');
-    fetchData();
+      const checkinRes = await fetch(`${API_URL}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          meals_today: checkIn.ate || 'Not specified',
+          activity_today: checkIn.exercise || 'Not specified',
+          mood: checkIn.feeling || '',
+          age: Number(profile?.age) || 0,
+          weight: Number(profile?.weight) || 0,
+          height: Number(profile?.height) || 0,
+          sex: profile?.sex || '',
+          medical_conditions: profile?.medical_conditions || [],
+          goals: safeGoals,
+          language: 'ar',
+        }),
+      });
+
+      const checkinData = await checkinRes.json();
+      setCheckinResult(checkinData);
+
+      const { data: loy } = await supabase
+        .from('loyalty').select('points').eq('id', user.id).single();
+
+      await supabase
+        .from('loyalty')
+        .update({ points: (loy?.points || 0) + 10 })
+        .eq('id', user.id);
+
+      setCheckInVisible(false);
+      setCheckIn({ ate: '', feeling: '', exercise: '' });
+
+      let message = 'Your AI check-in analysis is ready. +10 points earned!';
+      if (checkinData.product_hint) {
+        message += `\n\n💊 Ria suggests: ${checkinData.product_hint}`;
+      }
+      Alert.alert('✅ Check-in saved!', message);
+      fetchData();
+
+    } catch (error) {
+      console.log('Checkin error:', error);
+      Alert.alert('Error', 'Could not save check-in. Please try again.');
+    }
   };
 
   if (loading) {
@@ -116,10 +182,7 @@ export default function HomeScreen({ navigation }) {
   const points = loyalty?.points || 0;
   const pointsToNext = 2000 - points;
   const progressPercent = Math.min((points / 2000) * 100, 100);
-
-  const recommendedMeals = MEAL_SUGGESTIONS
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
+  const energy = checkinResult?.energy_estimation || {};
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -132,22 +195,34 @@ export default function HomeScreen({ navigation }) {
         </View>
         <TouchableOpacity
           style={styles.notifBtn}
-          onPress={() => navigation.getParent()?.navigate('Chat')}
+          onPress={() => navigation.navigate('Chat')}
         >
           <Text style={styles.notifEmoji}>🤖</Text>
         </TouchableOpacity>
       </View>
 
-      {/* AI Daily tip */}
+      {/* AI tip */}
       <View style={styles.tipCard}>
         <Text style={styles.tipTitle}>💡 Ria's tip for today</Text>
-        {tipLoading
-          ? <ActivityIndicator size="small" color="#1D9E75" style={{ marginTop: 8 }} />
-          : <Text style={styles.tipText}>{aiTip}</Text>
-        }
+        <Text style={styles.tipText}>{aiTip}</Text>
       </View>
 
-      {/* Daily check-in */}
+      {/* AI Plan */}
+      {(priorityFocus || dailyActions.length > 0) && (
+        <View style={styles.aiPlanCard}>
+          <Text style={styles.sectionTitle}>🧠 Your plan for today</Text>
+          {priorityFocus && (
+            <Text style={styles.planTitle}>🎯 Today's focus: {priorityFocus}</Text>
+          )}
+          {dailyActions.slice(0, 2).map((action, index) => (
+            <Text key={index} style={styles.planText}>
+              • {typeof action === 'string' ? action : action.action}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {/* Check-in button */}
       <TouchableOpacity
         style={styles.checkInCard}
         onPress={() => setCheckInVisible(true)}
@@ -162,6 +237,18 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.checkInArrow}>›</Text>
       </TouchableOpacity>
 
+      {/* Check-in result */}
+      {checkinResult && (
+        <View style={styles.loyaltyCard}>
+          <Text style={styles.sectionTitle}>Latest AI Check-in Analysis</Text>
+          <Text style={styles.progressLabel}>Calories in: {energy.estimated_calories_in ?? 'N/A'} kcal</Text>
+          <Text style={styles.progressLabel}>Calories burned: {energy.estimated_calories_burned ?? 'N/A'} kcal</Text>
+          <Text style={styles.progressLabel}>Net calories: {energy.estimated_net_calories ?? 'N/A'} kcal</Text>
+          <Text style={styles.progressLabel}>Weekly weight prediction: {energy.estimated_weekly_weight_change_kg ?? 'N/A'} kg</Text>
+          <Text style={styles.progressLabel}>Trend: {energy.weight_trend ?? checkinResult?.trend_direction ?? 'N/A'}</Text>
+        </View>
+      )}
+
       {/* Loyalty card */}
       <View style={styles.loyaltyCard}>
         <View style={styles.loyaltyTop}>
@@ -171,7 +258,7 @@ export default function HomeScreen({ navigation }) {
           </View>
           <TouchableOpacity
             style={styles.viewRewardsBtn}
-            onPress={() => navigation.getParent()?.navigate('Rewards')}
+            onPress={() => navigation.navigate('Rewards')}
           >
             <Text style={styles.viewRewardsBtnText}>View rewards →</Text>
           </TouchableOpacity>
@@ -186,31 +273,19 @@ export default function HomeScreen({ navigation }) {
 
       {/* Quick actions */}
       <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickBtn}
-          onPress={() => navigation.getParent()?.navigate('Chat')}
-        >
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Chat')}>
           <Text style={styles.quickEmoji}>🤖</Text>
           <Text style={styles.quickLabel}>Ask Ria</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickBtn}
-          onPress={() => navigation.getParent()?.navigate('Meal')}
-        >
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Meal')}>
           <Text style={styles.quickEmoji}>📸</Text>
           <Text style={styles.quickLabel}>Scan Meal</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickBtn}
-          onPress={() => navigation.getParent()?.navigate('Store')}
-        >
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Store')}>
           <Text style={styles.quickEmoji}>🛒</Text>
           <Text style={styles.quickLabel}>Store</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickBtn}
-          onPress={() => navigation.getParent()?.navigate('Blog')}
-        >
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Blog')}>
           <Text style={styles.quickEmoji}>📝</Text>
           <Text style={styles.quickLabel}>Blog</Text>
         </TouchableOpacity>
@@ -219,56 +294,76 @@ export default function HomeScreen({ navigation }) {
       {/* Recommended products */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recommended for you</Text>
-        <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Store')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Store')}>
           <Text style={styles.seeAll}>See all →</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-      >
-        {products.map(product => (
-          <TouchableOpacity
-            key={product.id}
-            style={styles.productCard}
-            onPress={() => navigation.getParent()?.navigate('Store')}
-          >
-            <View style={styles.productEmoji}>
-              <Text style={{ fontSize: 32 }}>{product.image_emoji}</Text>
-            </View>
-            <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.productPrice}>${product.price}</Text>
-            <View style={styles.productTag}>
-              <Text style={styles.productTagText}>{product.category}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {products.length === 0 ? (
+        <Text style={{ paddingHorizontal: 16, color: '#888', marginBottom: 12 }}>
+          No product recommendation for your current goal yet.
+        </Text>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
+          {products.map(product => (
+            <TouchableOpacity
+              key={product.id}
+              style={styles.productCard}
+              onPress={() => navigation.navigate('Store')}
+            >
+              <View style={styles.productEmoji}>
+                <Text style={{ fontSize: 32 }}>{product.image_emoji}</Text>
+              </View>
+              <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+              <Text style={styles.productPrice}>{product.price ? `${product.price} TND` : ''}</Text>
+              <View style={styles.productTag}>
+                <Text style={styles.productTagText} numberOfLines={2}>{product.category}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
-      {/* Recommended meals */}
+      {/* Meal ideas */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Meal ideas for you</Text>
-        <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Meal')}>
-          <Text style={styles.seeAll}>Scan meal →</Text>
-        </TouchableOpacity>
       </View>
       <View style={styles.mealsContainer}>
-        {recommendedMeals.map((meal, i) => (
+        {meals.map((meal, i) => (
           <View key={i} style={styles.mealCard}>
-            <Text style={styles.mealEmoji}>{meal.emoji}</Text>
+            <Text style={styles.mealEmoji}>🍽️</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.mealName}>{meal.name}</Text>
-              <Text style={styles.mealCal}>{meal.cal} kcal</Text>
+              <Text style={styles.mealName}>{meal.title || meal.name}</Text>
+              <Text style={styles.mealCal}>{meal.recommendation || meal.reason}</Text>
             </View>
             <View style={styles.mealTag}>
-              <Text style={styles.mealTagText}>{meal.tag}</Text>
+              <Text style={styles.mealTagText}>AI Meal</Text>
             </View>
           </View>
         ))}
       </View>
 
-      {/* Stats row */}
+      {/* Exercise suggestions */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Exercise suggestions</Text>
+      </View>
+      <View style={styles.mealsContainer}>
+        {exercises.length === 0 ? (
+          <Text style={{ color: '#888', paddingHorizontal: 0 }}>No exercise suggestion yet.</Text>
+        ) : exercises.map((exercise, i) => (
+          <View key={i} style={styles.mealCard}>
+            <Text style={styles.mealEmoji}>🏋️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.mealName}>{exercise.title}</Text>
+              <Text style={styles.mealCal}>{exercise.recommendation}</Text>
+            </View>
+            <View style={styles.mealTag}>
+              <Text style={styles.mealTagText}>AI Exercise</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* Stats */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Your stats</Text>
       </View>
@@ -286,7 +381,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.statCard}>
           <Text style={styles.statEmoji}>🎯</Text>
           <Text style={styles.statValue} numberOfLines={1}>
-            {(profile?.goals || [])[0] || 'None'}
+            {normalizeGoals(profile?.goals)[0] || 'None'}
           </Text>
           <Text style={styles.statLabel}>Top goal</Text>
         </View>
@@ -296,7 +391,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.goalsSection}>
         <Text style={styles.sectionTitle}>My goals</Text>
         <View style={styles.goalsRow}>
-          {(profile?.goals || []).map((goal, i) => (
+          {normalizeGoals(profile?.goals).filter(Boolean).map((goal, i) => (
             <View key={i} style={styles.goalTag}>
               <Text style={styles.goalTagText}>{goal}</Text>
             </View>
@@ -306,7 +401,7 @@ export default function HomeScreen({ navigation }) {
 
       <View style={{ height: 40 }} />
 
-      {/* Daily Check-in Modal */}
+      {/* Check-in Modal */}
       <Modal
         visible={checkInVisible}
         animationType="slide"
@@ -333,15 +428,6 @@ export default function HomeScreen({ navigation }) {
                 multiline
               />
 
-              <Text style={styles.inputLabel}>💧 How much water did you drink?</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2 liters, 8 glasses..."
-                placeholderTextColor="#ccc"
-                value={checkIn.water}
-                onChangeText={v => setCheckIn(p => ({ ...p, water: v }))}
-              />
-
               <Text style={styles.inputLabel}>🏃 Did you exercise today?</Text>
               <TextInput
                 style={styles.input}
@@ -356,10 +442,7 @@ export default function HomeScreen({ navigation }) {
                 {['😔', '😐', '🙂', '😊', '🤩'].map(emoji => (
                   <TouchableOpacity
                     key={emoji}
-                    style={[
-                      styles.feelingBtn,
-                      checkIn.feeling === emoji && styles.feelingBtnActive
-                    ]}
+                    style={[styles.feelingBtn, checkIn.feeling === emoji && styles.feelingBtnActive]}
                     onPress={() => setCheckIn(p => ({ ...p, feeling: emoji }))}
                   >
                     <Text style={{ fontSize: 24 }}>{emoji}</Text>
@@ -367,10 +450,7 @@ export default function HomeScreen({ navigation }) {
                 ))}
               </View>
 
-              <TouchableOpacity
-                style={styles.submitBtn}
-                onPress={submitCheckIn}
-              >
+              <TouchableOpacity style={styles.submitBtn} onPress={submitCheckIn}>
                 <Text style={styles.submitBtnText}>Save check-in • +10 pts</Text>
               </TouchableOpacity>
 
@@ -385,6 +465,9 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  aiPlanCard: { margin: 16, marginTop: 8, marginBottom: 8, backgroundColor: '#fff', borderRadius: 16, padding: 16, elevation: 1, borderLeftWidth: 4, borderLeftColor: '#1D9E75' },
+  planTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginTop: 10, marginBottom: 8 },
+  planText: { fontSize: 13, color: '#555', lineHeight: 20, marginBottom: 4 },
   container: { flex: 1, backgroundColor: '#f8f8f8' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60, backgroundColor: '#fff' },

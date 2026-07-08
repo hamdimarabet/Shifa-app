@@ -7,6 +7,7 @@ import WeightScreen from '../screens/onboarding/WeightScreen';
 import SexScreen from '../screens/onboarding/SexScreen';
 import ActivityScreen from '../screens/onboarding/ActivityScreen';
 import GoalsScreen from '../screens/onboarding/GoalsScreen';
+import MedicalConditionsScreen from '../screens/onboarding/MedicalConditionsScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import TabNavigator from './TabNavigator';
 import OrderFormScreen from '../screens/store/OrderFormScreen';
@@ -27,6 +28,7 @@ export default function OnboardingNavigator() {
       <Stack.Screen name="Sex" component={SexScreen} />
       <Stack.Screen name="Activity" component={ActivityScreen} />
       <Stack.Screen name="Goals" component={GoalsScreen} />
+      <Stack.Screen name="MedicalConditions" component={MedicalConditionsScreen} />
       <Stack.Screen name="MainApp" component={TabNavigator} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="OrderForm" component={OrderFormScreen} />

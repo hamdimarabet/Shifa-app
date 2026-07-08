@@ -1,55 +1,69 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  TouchableWithoutFeedback, Keyboard
+} from 'react-native';
 import { useUser } from '../../context/UserContext';
 
 export default function HeightScreen({ navigation }) {
   const [height, setHeight] = useState('');
   const [unit, setUnit] = useState('cm');
   const { updateUser } = useUser();
+
+  const handleNext = () => {
+    if (!height) return;
+    updateUser({ height, heightUnit: unit });
+    navigation.navigate('Weight');
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.progressBar}>
-        <View style={[styles.progress, { width: '28%' }]} />
-      </View>
-      <Text style={styles.title}>How tall are you?</Text>
-      <Text style={styles.subtitle}>Your height will help us calculate important body stats.</Text>
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your height"
-          placeholderTextColor="#ccc"
-          value={height}
-          onChangeText={setHeight}
-          keyboardType="numeric"
-          autoFocus
-        />
-        <View style={styles.unitToggle}>
-          <TouchableOpacity
-            style={[styles.unitBtn, unit === 'ft' && styles.unitBtnActive]}
-            onPress={() => setUnit('ft')}
-          >
-            <Text style={[styles.unitText, unit === 'ft' && styles.unitTextActive]}>Ft/In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.unitBtn, unit === 'cm' && styles.unitBtnActive]}
-            onPress={() => setUnit('cm')}
-          >
-            <Text style={[styles.unitText, unit === 'cm' && styles.unitTextActive]}>Cm</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <Text style={styles.hint}>Don't worry if you don't know it precisely — you can change this later from settings.</Text>
-      <TouchableOpacity
-        style={[styles.button, !height && styles.buttonDisabled]}
-        onPress={() => {
-            if (!height) return;
-            updateUser({ height, heightUnit: unit });
-            navigation.navigate('Weight');
-          }}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={styles.buttonText}>Next</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.progressBar}>
+          <View style={[styles.progress, { width: '28%' }]} />
+        </View>
+        <Text style={styles.title}>How tall are you?</Text>
+        <Text style={styles.subtitle}>Your height will help us calculate important body stats.</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your height"
+            placeholderTextColor="#ccc"
+            value={height}
+            onChangeText={setHeight}
+            keyboardType="numeric"
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleNext}
+          />
+          <View style={styles.unitToggle}>
+            <TouchableOpacity
+              style={[styles.unitBtn, unit === 'ft' && styles.unitBtnActive]}
+              onPress={() => setUnit('ft')}
+            >
+              <Text style={[styles.unitText, unit === 'ft' && styles.unitTextActive]}>Ft/In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.unitBtn, unit === 'cm' && styles.unitBtnActive]}
+              onPress={() => setUnit('cm')}
+            >
+              <Text style={[styles.unitText, unit === 'cm' && styles.unitTextActive]}>Cm</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.hint}>Don't worry if you don't know it precisely — you can change this later.</Text>
+        <TouchableOpacity
+          style={[styles.button, !height && styles.buttonDisabled]}
+          onPress={handleNext}
+        >
+          <Text style={styles.buttonText}>Next</Text>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 

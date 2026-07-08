@@ -1,49 +1,68 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  TouchableWithoutFeedback, Keyboard
+} from 'react-native';
+import { useUser } from '../../context/UserContext';
 
 export default function WeightScreen({ navigation }) {
   const [weight, setWeight] = useState('');
   const [unit, setUnit] = useState('kg');
+  const { updateUser } = useUser();
+
+  const handleNext = () => {
+    if (!weight) return;
+    updateUser({ weight, weightUnit: unit });
+    navigation.navigate('Sex');
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.progressBar}>
-        <View style={[styles.progress, { width: '42%' }]} />
-      </View>
-      <Text style={styles.title}>What's your current weight?</Text>
-      <Text style={styles.subtitle}>This will help us determine your goal and monitor your progress.</Text>
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your weight"
-          placeholderTextColor="#ccc"
-          value={weight}
-          onChangeText={setWeight}
-          keyboardType="numeric"
-          autoFocus
-        />
-        <View style={styles.unitToggle}>
-          <TouchableOpacity
-            style={[styles.unitBtn, unit === 'kg' && styles.unitBtnActive]}
-            onPress={() => setUnit('kg')}
-          >
-            <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>Kg</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.unitBtn, unit === 'lb' && styles.unitBtnActive]}
-            onPress={() => setUnit('lb')}
-          >
-            <Text style={[styles.unitText, unit === 'lb' && styles.unitTextActive]}>Lb</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={[styles.button, !weight && styles.buttonDisabled]}
-        onPress={() => weight && navigation.navigate('Sex')}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={styles.buttonText}>Next</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.progressBar}>
+          <View style={[styles.progress, { width: '42%' }]} />
+        </View>
+        <Text style={styles.title}>What's your current weight?</Text>
+        <Text style={styles.subtitle}>This will help us determine your goal and monitor your progress.</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your weight"
+            placeholderTextColor="#ccc"
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleNext}
+          />
+          <View style={styles.unitToggle}>
+            <TouchableOpacity
+              style={[styles.unitBtn, unit === 'kg' && styles.unitBtnActive]}
+              onPress={() => setUnit('kg')}
+            >
+              <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>Kg</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.unitBtn, unit === 'lb' && styles.unitBtnActive]}
+              onPress={() => setUnit('lb')}
+            >
+              <Text style={[styles.unitText, unit === 'lb' && styles.unitTextActive]}>Lb</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.button, !weight && styles.buttonDisabled]}
+          onPress={handleNext}
+        >
+          <Text style={styles.buttonText}>Next</Text>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 

@@ -5,6 +5,7 @@ const UserContext = createContext({});
 export function UserProvider({ children }) {
   const [userData, setUserData] = useState({
     name: '',
+    age: '',
     height: '',
     heightUnit: 'cm',
     weight: '',
@@ -12,6 +13,7 @@ export function UserProvider({ children }) {
     sex: '',
     activityLevel: '',
     goals: [],
+    medical_conditions: [],
   });
 
   const updateUser = (newData) => {
