@@ -29,6 +29,9 @@ export default function SignupScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
       <Text style={styles.logo}>Ø Shifa</Text>
       <Text style={styles.title}>Create account</Text>
       <Text style={styles.subtitle}>Start your wellness journey today</Text>
@@ -82,6 +85,8 @@ export default function SignupScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 28, paddingTop: 80, paddingBottom: 48 },
+  backButton: { marginBottom: 16 },
+  backButtonText: { fontSize: 24, color: '#1D9E75' },
   logo: { fontSize: 28, fontWeight: '700', color: '#1D9E75', textAlign: 'center', marginBottom: 40 },
   title: { fontSize: 28, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#888', textAlign: 'center', marginBottom: 40 },

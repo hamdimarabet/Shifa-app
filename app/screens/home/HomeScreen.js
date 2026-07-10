@@ -281,13 +281,21 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.quickEmoji}>📸</Text>
           <Text style={styles.quickLabel}>Scan Meal</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Store')}>
-          <Text style={styles.quickEmoji}>🛒</Text>
-          <Text style={styles.quickLabel}>Store</Text>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Steps')}>
+          <Text style={styles.quickEmoji}>👟</Text>
+          <Text style={styles.quickLabel}>Steps</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Blog')}>
           <Text style={styles.quickEmoji}>📝</Text>
           <Text style={styles.quickLabel}>Blog</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Journal')}>
+          <Text style={styles.quickEmoji}>📖</Text>
+          <Text style={styles.quickLabel}>Journal</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Community')}>
+          <Text style={styles.quickEmoji}>👥</Text>
+          <Text style={styles.quickLabel}>Community</Text>
         </TouchableOpacity>
       </View>
 
@@ -493,8 +501,8 @@ const styles = StyleSheet.create({
   progressBarContainer: { height: 6, backgroundColor: '#eee', borderRadius: 3, marginBottom: 8 },
   progressBarFill: { height: 6, backgroundColor: '#1D9E75', borderRadius: 3 },
   progressLabel: { fontSize: 12, color: '#888' },
-  quickActions: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8 },
-  quickBtn: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', elevation: 1 },
+  quickActions: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 8, marginBottom: 8 },
+  quickBtn: { width: '30%', backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', elevation: 1 },
   quickEmoji: { fontSize: 24, marginBottom: 6 },
   quickLabel: { fontSize: 11, color: '#444', fontWeight: '500' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 10 },

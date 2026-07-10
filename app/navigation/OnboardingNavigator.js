@@ -11,6 +11,11 @@ import MedicalConditionsScreen from '../screens/onboarding/MedicalConditionsScre
 import ChatScreen from '../screens/chat/ChatScreen';
 import TabNavigator from './TabNavigator';
 import OrderFormScreen from '../screens/store/OrderFormScreen';
+import BlogScreen from '../screens/blog/BlogScreen';
+import CommunityScreen from '../screens/community/CommunityScreen';
+import StepsScreen from '../screens/steps/stepsScreen';
+import JournalScreen from '../screens/journal/journalScreen';
+import MealScreen from '../screens/meal/MealScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +37,11 @@ export default function OnboardingNavigator() {
       <Stack.Screen name="MainApp" component={TabNavigator} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="OrderForm" component={OrderFormScreen} />
+      <Stack.Screen name="Blog" component={BlogScreen} />
+      <Stack.Screen name="Community" component={CommunityScreen} />
+      <Stack.Screen name="Steps" component={StepsScreen} />
+      <Stack.Screen name="Journal" component={JournalScreen} />
+      <Stack.Screen name="Meal" component={MealScreen} />
     </Stack.Navigator>
   );
 }

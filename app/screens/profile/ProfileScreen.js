@@ -44,9 +44,13 @@ export default function ProfileScreen({ navigation }) {
       .from('user_profiles')
       .update({
         name: editData.name,
+        age: parseInt(editData.age) || null,
         height: parseFloat(editData.height),
         weight: parseFloat(editData.weight),
+        sex: editData.sex,
         activity_level: editData.activity_level,
+        goals: Array.isArray(editData.goals) ? editData.goals : [editData.goals],
+        medical_conditions: editData.medical_conditions || [],
       })
       .eq('id', user.id);
 
@@ -230,6 +234,15 @@ export default function ProfileScreen({ navigation }) {
                 placeholder="Your name"
               />
 
+              <Text style={styles.inputLabel}>Age</Text>
+              <TextInput
+                style={styles.input}
+                value={String(editData.age || '')}
+                onChangeText={v => setEditData(p => ({ ...p, age: v }))}
+                keyboardType="numeric"
+                placeholder="Your age"
+              />
+
               <Text style={styles.inputLabel}>Height (cm)</Text>
               <TextInput
                 style={styles.input}
@@ -248,24 +261,79 @@ export default function ProfileScreen({ navigation }) {
                 placeholder="Weight in kg"
               />
 
+              <Text style={styles.inputLabel}>Sex</Text>
+              <View style={styles.optionRow}>
+                {['Male', 'Female'].map(s => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.optionBtn, editData.sex === s && styles.optionBtnActive]}
+                    onPress={() => setEditData(p => ({ ...p, sex: s }))}
+                  >
+                    <Text style={[styles.optionBtnText, editData.sex === s && styles.optionBtnTextActive]}>
+                      {s}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <Text style={styles.inputLabel}>Activity level</Text>
               {['sitting', 'standing', 'walking', 'intense'].map(level => (
                 <TouchableOpacity
                   key={level}
-                  style={[
-                    styles.activityOption,
-                    editData.activity_level === level && styles.activityOptionActive
-                  ]}
+                  style={[styles.activityOption, editData.activity_level === level && styles.activityOptionActive]}
                   onPress={() => setEditData(p => ({ ...p, activity_level: level }))}
                 >
-                  <Text style={[
-                    styles.activityOptionText,
-                    editData.activity_level === level && styles.activityOptionTextActive
-                  ]}>
+                  <Text style={[styles.activityOptionText, editData.activity_level === level && styles.activityOptionTextActive]}>
                     {level.charAt(0).toUpperCase() + level.slice(1)}
                   </Text>
                 </TouchableOpacity>
               ))}
+
+              <Text style={styles.inputLabel}>Goal</Text>
+              {['weight_loss', 'muscle_gain', 'general_wellness'].map(goal => (
+                <TouchableOpacity
+                  key={goal}
+                  style={[
+                    styles.activityOption,
+                    (editData.goals?.[0] === goal || editData.goals === goal) && styles.activityOptionActive
+                  ]}
+                  onPress={() => setEditData(p => ({ ...p, goals: [goal] }))}
+                >
+                  <Text style={[
+                    styles.activityOptionText,
+                    (editData.goals?.[0] === goal || editData.goals === goal) && styles.activityOptionTextActive
+                  ]}>
+                    {goal === 'weight_loss' ? '🔥 Weight Loss' : goal === 'muscle_gain' ? '💪 Muscle Gain' : '🌿 General Wellness'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              <Text style={styles.inputLabel}>Medical conditions</Text>
+              {[
+                { id: 'pregnancy', label: '🤰 Pregnancy' },
+                { id: 'breastfeeding', label: '🤱 Breastfeeding' },
+                { id: 'hypertension', label: '❤️ Hypertension' },
+                { id: 'diabetes', label: '🩸 Diabetes' },
+              ].map(condition => {
+                const currentConditions = editData.medical_conditions || [];
+                const isSelected = currentConditions.includes(condition.id);
+                return (
+                  <TouchableOpacity
+                    key={condition.id}
+                    style={[styles.activityOption, isSelected && styles.activityOptionActive]}
+                    onPress={() => {
+                      const updated = isSelected
+                        ? currentConditions.filter(c => c !== condition.id)
+                        : [...currentConditions, condition.id];
+                      setEditData(p => ({ ...p, medical_conditions: updated }));
+                    }}
+                  >
+                    <Text style={[styles.activityOptionText, isSelected && styles.activityOptionTextActive]}>
+                      {condition.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
 
               <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
                 <Text style={styles.saveBtnText}>Save changes</Text>
@@ -323,6 +391,11 @@ const styles = StyleSheet.create({
   modalClose: { fontSize: 18, color: '#888' },
   inputLabel: { fontSize: 13, fontWeight: '600', color: '#888', marginBottom: 8, marginTop: 12 },
   input: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: '#1a1a1a', marginBottom: 4 },
+  optionRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  optionBtn: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#eee', alignItems: 'center' },
+  optionBtnActive: { borderColor: '#1D9E75', backgroundColor: '#E1F5EE' },
+  optionBtnText: { fontSize: 14, color: '#888' },
+  optionBtnTextActive: { color: '#1D9E75', fontWeight: '600' },
   activityOption: { borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, marginBottom: 8 },
   activityOptionActive: { borderColor: '#1D9E75', backgroundColor: '#E1F5EE' },
   activityOptionText: { fontSize: 14, color: '#888' },

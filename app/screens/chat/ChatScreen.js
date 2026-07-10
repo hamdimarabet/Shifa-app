@@ -12,7 +12,7 @@ export default function ChatScreen({ navigation }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hi! I'm Ria, your personal wellness assistant. I can help you with nutrition, fitness, health insights and personalized advice. What can I help you with today?",
+      content: 'أنا مساعد شفاء الذكي 👋\nيمكنني مساعدتك في:\n• منتجات شفاء\n• التغذية والسعرات\n• نصائح صحية مخصصة\n\nبأش نعاونك اليوم؟',
     },
   ]);
   const [input, setInput] = useState('');
